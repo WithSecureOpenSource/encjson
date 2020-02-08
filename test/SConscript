@@ -1,0 +1,23 @@
+Import('env')
+
+env['CPPPATH'] = [
+    '#include',
+]
+
+env['LIBPATH'] = [
+    '../src',
+]
+
+env['LIBS'] = [ 'encjson', 'm' ]
+
+env.ParseConfig(env['CONFIG_PARSER'])
+
+env.Program('test_encjson', 'test_encjson.c')
+
+env.Program('test_encjsoneq', 'test_encjsoneq.c')
+
+env.Program('test_decode_file', 'test_decode_file.c')
+
+env.Program('test_decode_empty_file', 'test_decode_empty_file.c')
+
+env.Program('test_fstrace', 'test_fstrace.c')

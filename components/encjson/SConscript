@@ -1,0 +1,13 @@
+Import('env')
+
+import os
+
+include = env.Install('include', ['#include/encjson.h'])
+lib = env.Install('lib', ['../../src/libencjson.a'])
+
+env.Alias(
+    'install', env.Install(os.path.join(env['PREFIX'], 'include'), include),
+)
+env.Alias('install', env.Install(os.path.join(env['PREFIX'], 'lib'), lib))
+
+env['CONFIG_BUILDER'](env)

@@ -1,0 +1,8 @@
+Name: encjson
+Description:
+Version: 1.0
+Requires:
+Requires.private: fsdyn
+Cflags: -I@prefix@/include
+Libs: -L@prefix@/lib -lencjson
+Libs.private: -lm

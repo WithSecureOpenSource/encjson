@@ -1,0 +1,18 @@
+Import('env')
+import os
+
+env.Command('encjson_version.c', [],
+            """echo 'const char *encjson_version_tag = \
+    "F-S_v:: encjson 1.0.%s";' >$TARGET""" % os.getenv("BUILD_NUMBER", "9999"))
+
+env['CCFLAGS'] += ' -fPIC'
+
+env['CPPPATH'] = [
+    '#include',
+]
+
+env.ParseConfig(env['CONFIG_PARSER'])
+
+env.StaticLibrary('encjson',
+                  [ 'encjson.c',
+                    'encjson_version.c' ])
