@@ -288,6 +288,32 @@ inline JsonThingPtr make_json_thing_ptr(json_thing_t *thing)
     return { thing, json_destroy_thing };
 }
 
+#if __cplusplus >= 201703L
+
+#include <string>
+
+inline std::string dump(json_thing_t *thing)
+{
+    size_t size = json_utf8_encode(thing, nullptr, 0);
+    std::string str;
+    str.resize(size);
+    json_utf8_encode(thing, str.data(), size + 1);
+    return str;
+}
+
+inline std::string dump(json_thing_t *thing,
+                        unsigned left_margin,
+                        unsigned indent)
+{
+    size_t size = json_utf8_prettyprint(thing, nullptr, 0, left_margin, indent);
+    std::string str;
+    str.resize(size);
+    json_utf8_prettyprint(thing, str.data(), size + 1, left_margin, indent);
+    return str;
+}
+
+#endif
+
 } // namespace encjson
 } // namespace fsecure
 #endif
