@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <fsdyn/fsalloc.h>
 #include <fsdyn/charstr.h>
+#include <fsdyn/float.h>
 #include <fsdyn/list.h>
 #include <fsdyn/hashtable.h>
 #include <assert.h>
@@ -1634,12 +1635,14 @@ bool json_cast_to_integer(json_thing_t *thing, long long *n)
             }
         case JSON_FLOAT:
             {
-                double value = json_double_value(thing);
-                if (value < LLONG_MIN || value > LLONG_MAX ||
-                    value != (long long) value)
-                    return false;
-                *n = (long long) value;
-                return true;
+                _Static_assert(sizeof(double) == sizeof(uint64_t),
+                               "encjson requires a 64-bit double type.");
+                union {
+                    double f;
+                    uint64_t i;
+                } value;
+                value.f = json_double_value(thing);
+                return binary64_to_integer(value.i, n);
             }
         default:
             return false;
@@ -1662,12 +1665,14 @@ bool json_cast_to_unsigned(json_thing_t *thing, unsigned long long *n)
             return true;
         case JSON_FLOAT:
             {
-                double value = json_double_value(thing);
-                if (value < 0 || value > ULLONG_MAX ||
-                    value != (unsigned long long) value)
-                    return false;
-                *n = (unsigned long long) value;
-                return true;
+                _Static_assert(sizeof(double) == sizeof(uint64_t),
+                               "encjson requires a 64-bit double type.");
+                union {
+                    double f;
+                    uint64_t i;
+                } value;
+                value.f = json_double_value(thing);
+                return binary64_to_unsigned(value.i, n);
             }
         default:
             return false;
