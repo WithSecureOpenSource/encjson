@@ -271,6 +271,7 @@ bool json_thing_equal(json_thing_t *a, json_thing_t *b, double tolerance);
 
 #include <functional>
 #include <memory>
+#include <string>
 
 namespace fsecure {
 namespace encjson {
@@ -289,8 +290,6 @@ inline JsonThingPtr make_json_thing_ptr(json_thing_t *thing)
 }
 
 #if __cplusplus >= 201703L
-
-#include <string>
 
 inline std::string dump(json_thing_t *thing)
 {
