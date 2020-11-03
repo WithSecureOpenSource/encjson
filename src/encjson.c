@@ -1729,11 +1729,11 @@ const char *json_trace(void *p)
         size = trace_data.max_size;
     trace_data.max_size = TRACE_DEFAULT_SIZE;
     char *slot = trace_data.slots[trace_data.next_slot % TRACE_SLOTS];
-    if (!slot)
-        fs_reallocator_skew(-1);
     char *buf = fsrealloc(slot, size + 1);
     if (!buf)
         return "";
+    if (!slot)
+        fs_reallocator_skew(-1);
     trace_data.slots[trace_data.next_slot++ % TRACE_SLOTS] = buf;
     json_utf8_encode(thing, buf, size + 1);
     return buf;
