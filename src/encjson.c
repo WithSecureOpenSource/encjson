@@ -1728,10 +1728,12 @@ const char *json_trace(void *p)
     if (size > trace_data.max_size)
         size = trace_data.max_size;
     trace_data.max_size = TRACE_DEFAULT_SIZE;
-    char *buf = fsrealloc(trace_data.slots[trace_data.next_slot % TRACE_SLOTS],
-                          size + 1);
+    char *slot = trace_data.slots[trace_data.next_slot % TRACE_SLOTS];
+    char *buf = fsrealloc(slot, size + 1);
     if (!buf)
         return "";
+    if (!slot)
+        fs_reallocator_skew(-1);
     trace_data.slots[trace_data.next_slot++ % TRACE_SLOTS] = buf;
     json_utf8_encode(thing, buf, size + 1);
     return buf;
