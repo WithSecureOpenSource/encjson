@@ -73,6 +73,10 @@ unsigned long long json_unsigned_value(json_thing_t *thing);
 double json_double_value(json_thing_t *thing);
 bool json_boolean_value(json_thing_t *thing);
 const char *json_string_value(json_thing_t *thing);
+/* Return the length in bytes of a JSON string value. Note that this
+ * function is not equivalent to strlen(json_string_value(thing)) if
+ * the string contains NUL characters. */
+size_t json_string_length(json_thing_t *thing);
 const char *json_raw_encoding(json_thing_t *thing);
 
 /* This library spits JSON's generic number type into three useful C
