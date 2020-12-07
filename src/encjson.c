@@ -48,6 +48,7 @@ struct json_thing {
         } object;
         struct {
             char *utf8;
+            size_t len;
         } string;
         struct {
             long long value;
@@ -70,7 +71,7 @@ struct json_thing {
 static const char *decode(const char *p, const char *end, json_thing_t **thing,
                           unsigned levels);
 static const char *decode_string_value(const char *p, const char *end,
-                                       char **value);
+                                       char **value, size_t *len);
 
 static void json_error()
 {
@@ -142,20 +143,26 @@ static int is_at_latin_control_character(const char *s)
     return s[0] == (char) 0xc2 && (s[1] & 0xe0) == 0x80;
 }
 
-json_thing_t *json_adopt_string(char *s)
+json_thing_t *json_adopt_bounded_string(char *s, size_t size)
 {
+    assert(charstr_valid_utf8_bounded(s, s + size));
     json_thing_t *thing = make_thing(JSON_STRING);
     thing->string.utf8 = s;
+    thing->string.len = size;
     return thing;
+}
+
+json_thing_t *json_adopt_string(char *s)
+{
+    return json_adopt_bounded_string(s, strlen(s));
 }
 
 json_thing_t *json_make_bounded_string(const char *s, size_t size)
 {
-    assert(charstr_valid_utf8_bounded(s, s + size));
     char *dup = fsalloc(size + 1);
     memcpy(dup, s, size);
     dup[size] = '\0';
-    return json_adopt_string(dup);
+    return json_adopt_bounded_string(dup, size);
 }
 
 json_thing_t *json_make_string(const char *s)
@@ -354,6 +361,12 @@ const char *json_string_value(json_thing_t *thing)
 {
     assert(thing->type == JSON_STRING);
     return thing->string.utf8;
+}
+
+size_t json_string_length(json_thing_t *thing)
+{
+    assert(thing->type == JSON_STRING);
+    return thing->string.len;
 }
 
 const char *json_raw_encoding(json_thing_t *thing)
@@ -1043,7 +1056,8 @@ static const char *decode_object(const char *p, const char *end,
     }
     for (;;) {
         char *key;
-        p = decode_string_value(p, end, &key);
+        size_t len;
+        p = decode_string_value(p, end, &key, &len);
         if (!p) {
             json_destroy_thing(object);
             return NULL;
@@ -1281,11 +1295,12 @@ static ssize_t scan_string_repr(const char *p, const char *end)
 }
 
 static const char *decode_string_value(const char *p, const char *end,
-                                       char **value)
+                                       char **value, size_t *len)
 {
     ssize_t size = scan_string_repr(p, end);
     if (size < 0)
         return NULL;
+    *len = size;
     char *buffer = *value = fsalloc(size + 1);
     p = skip(p, end, '"');
     char *q = buffer;
@@ -1331,9 +1346,10 @@ static const char *decode_string(const char *p, const char *end,
                                  json_thing_t **thing)
 {
     char *value;
-    p = decode_string_value(p, end, &value);
+    size_t len;
+    p = decode_string_value(p, end, &value, &len);
     if (p)
-        *thing = json_adopt_string(value);
+        *thing = json_adopt_bounded_string(value, len);
     return p;
 }
 

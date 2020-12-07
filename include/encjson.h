@@ -18,7 +18,13 @@ json_thing_t *json_make_unsigned(unsigned long long n);
 json_thing_t *json_make_float(double n);
 json_thing_t *json_make_boolean(bool truth_value);
 json_thing_t *json_make_null(void);
+/* The value of a string created with json_make_bounded_string() has a
+ * complimentary NUL terminator, and is therefore guaranteed to be a C
+ * string. Instead, the value of a string created with
+ * json_adopt_bounded_string() does not and is therefore a C string
+ * only if the argument string contains a NUL character. */
 json_thing_t *json_make_bounded_string(const char *s, size_t size);
+json_thing_t *json_adopt_bounded_string(char *s, size_t size);
 
 /* While json_make_string() copies the argument string,
  * json_adopt_string() assumes the ownership of the argument string.
@@ -73,6 +79,10 @@ unsigned long long json_unsigned_value(json_thing_t *thing);
 double json_double_value(json_thing_t *thing);
 bool json_boolean_value(json_thing_t *thing);
 const char *json_string_value(json_thing_t *thing);
+/* Return the length in bytes of a JSON string value. Note that this
+ * function is not equivalent to strlen(json_string_value(thing)) if
+ * the string contains NUL characters. */
+size_t json_string_length(json_thing_t *thing);
 const char *json_raw_encoding(json_thing_t *thing);
 
 /* This library spits JSON's generic number type into three useful C
