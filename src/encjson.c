@@ -145,6 +145,7 @@ static int is_at_latin_control_character(const char *s)
 
 json_thing_t *json_adopt_bounded_string(char *s, size_t size)
 {
+    assert(charstr_valid_utf8_bounded(s, s + size));
     json_thing_t *thing = make_thing(JSON_STRING);
     thing->string.utf8 = s;
     thing->string.len = size;
@@ -158,7 +159,6 @@ json_thing_t *json_adopt_string(char *s)
 
 json_thing_t *json_make_bounded_string(const char *s, size_t size)
 {
-    assert(charstr_valid_utf8_bounded(s, s + size));
     char *dup = fsalloc(size + 1);
     memcpy(dup, s, size);
     dup[size] = '\0';

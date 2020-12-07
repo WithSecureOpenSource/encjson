@@ -18,6 +18,11 @@ json_thing_t *json_make_unsigned(unsigned long long n);
 json_thing_t *json_make_float(double n);
 json_thing_t *json_make_boolean(bool truth_value);
 json_thing_t *json_make_null(void);
+/* The value of a string created with json_make_bounded_string() has a
+ * complimentary NUL terminator, and is therefore guaranteed to be a C
+ * string. Instead, the value of a string created with
+ * json_adopt_bounded_string() does not and is therefore a C string
+ * only if the argument string contains a NUL character. */
 json_thing_t *json_make_bounded_string(const char *s, size_t size);
 json_thing_t *json_adopt_bounded_string(char *s, size_t size);
 
