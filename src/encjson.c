@@ -143,11 +143,11 @@ static int is_at_latin_control_character(const char *s)
     return s[0] == (char) 0xc2 && (s[1] & 0xe0) == 0x80;
 }
 
-static json_thing_t *json_adopt_bounded_string(char *s, size_t len)
+json_thing_t *json_adopt_bounded_string(char *s, size_t size)
 {
     json_thing_t *thing = make_thing(JSON_STRING);
     thing->string.utf8 = s;
-    thing->string.len = len;
+    thing->string.len = size;
     return thing;
 }
 

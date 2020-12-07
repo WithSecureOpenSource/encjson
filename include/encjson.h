@@ -19,6 +19,7 @@ json_thing_t *json_make_float(double n);
 json_thing_t *json_make_boolean(bool truth_value);
 json_thing_t *json_make_null(void);
 json_thing_t *json_make_bounded_string(const char *s, size_t size);
+json_thing_t *json_adopt_bounded_string(char *s, size_t size);
 
 /* While json_make_string() copies the argument string,
  * json_adopt_string() assumes the ownership of the argument string.
