@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 main () {
     cd "$(dirname "$0")/.." &&
@@ -6,35 +6,31 @@ main () {
         local archs=()
         IFS=, read -ra archs <<< "$FSARCHS"
         for arch in "${archs[@]}" ; do
-            do_test "$arch"
+            run-tests "$arch"
         done
-        return
+    else
+        local os=$(uname -m -s)
+        case $os in
+            "Darwin arm64")
+                run-tests darwin;;
+            "Darwin x86_64")
+                run-tests darwin;;
+            "FreeBSD amd64")
+                run-tests freebsd_amd64;;
+            "Linux i686")
+                run-tests linux32;;
+            "Linux x86_64")
+                run-tests linux64;;
+            "OpenBSD amd64")
+                run-tests openbsd_amd64;;
+            *)
+                echo "$0: Unknown OS architecture: $os" >&2
+                exit 1
+        esac
     fi
-    case "$(uname -s)" in
-        Linux)
-            case "$(uname -m)" in
-                x86_64)
-                    do_test linux64
-                    ;;
-                i686)
-                    do_test linux32
-                    ;;
-                *)
-                    echo "Bad CPU" >&2
-                    exit 1
-            esac
-            ;;
-        Darwin)
-            do_test darwin
-            ;;
-        *)
-            echo "Bad system" >&2
-            exit 1
-            ;;
-    esac
 }
 
-do_test () {
+run-tests () {
     arch=$1
     echo >&2 &&
     echo "test_encjson[$arch]..." >&2 &&
