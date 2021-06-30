@@ -48,8 +48,8 @@ json_thing_t *json_make_object(void);
  * The caller is responsible for making sure each field is unique within
  * an object. Returns object if successful and NULL in case of an
  * allocation failure. */
-json_thing_t *json_add_to_object(json_thing_t *object,
-                                 const char *field, json_thing_t *value);
+json_thing_t *json_add_to_object(json_thing_t *object, const char *field,
+                                 json_thing_t *value);
 
 /* A "raw" thing allows you to embed a JSON-encoding inside a JSON
  * thing. The caller is responsible for the validity of the encoding. A
@@ -110,16 +110,12 @@ bool json_array_get_array(json_thing_t *thing, unsigned n,
                           json_thing_t **value);
 bool json_array_get_object(json_thing_t *thing, unsigned n,
                            json_thing_t **value);
-bool json_array_get_string(json_thing_t *thing, unsigned n,
-                           const char **value);
-bool json_array_get_integer(json_thing_t *thing, unsigned n,
-                            long long *value);
+bool json_array_get_string(json_thing_t *thing, unsigned n, const char **value);
+bool json_array_get_integer(json_thing_t *thing, unsigned n, long long *value);
 bool json_array_get_unsigned(json_thing_t *thing, unsigned n,
                              unsigned long long *value);
-bool json_array_get_double(json_thing_t *thing, unsigned n,
-                           double *value);
-bool json_array_get_boolean(json_thing_t *thing, unsigned n,
-                            bool *value);
+bool json_array_get_double(json_thing_t *thing, unsigned n, double *value);
+bool json_array_get_boolean(json_thing_t *thing, unsigned n, bool *value);
 
 /* May result in an O(n) traversal. */
 size_t json_array_size(json_thing_t *array);
@@ -150,14 +146,13 @@ bool json_object_get_unsigned(json_thing_t *thing, const char *key,
                               unsigned long long *value);
 bool json_object_get_double(json_thing_t *thing, const char *key,
                             double *value);
-bool json_object_get_boolean(json_thing_t *thing, const char *key,
-                             bool *value);
+bool json_object_get_boolean(json_thing_t *thing, const char *key, bool *value);
 
 /* Get a value from a nested object structure using a number of keys.
  * Return NULL if a key does not match the structure or if a
  * non-object is encountered. */
-json_thing_t *json_object_dig(json_thing_t *object,
-                              const char *const *keys, size_t num_keys);
+json_thing_t *json_object_dig(json_thing_t *object, const char *const *keys,
+                              size_t num_keys);
 
 /* Like json_object_dig(), but the keys are given as a
  * variable-arguments list. This is a macro so the argument list
@@ -165,9 +160,8 @@ json_thing_t *json_object_dig(json_thing_t *object,
 #define json_object_fetch(object, ...) \
     json_object_fetch_func(object, __VA_ARGS__, (char *) NULL)
 
-json_thing_t *json_object_fetch_func(json_thing_t *object,
-                                     const char *key, ...);
-
+json_thing_t *json_object_fetch_func(json_thing_t *object, const char *key,
+                                     ...);
 
 /* If the object does not have the specified field, NULL is returned. */
 json_thing_t *json_object_pop(json_thing_t *object, const char *key);
@@ -310,8 +304,7 @@ inline std::string dump(json_thing_t *thing)
     return str;
 }
 
-inline std::string dump(json_thing_t *thing,
-                        unsigned left_margin,
+inline std::string dump(json_thing_t *thing, unsigned left_margin,
                         unsigned indent)
 {
     size_t size = json_utf8_prettyprint(thing, nullptr, 0, left_margin, indent);

@@ -1,22 +1,25 @@
-#include <stdlib.h>
-#include <string.h>
+#include "encjson.h"
+
+#include <assert.h>
 #include <errno.h>
 #include <limits.h>
 #include <math.h>
 #include <stdarg.h>
-#include <fsdyn/fsalloc.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include <fsdyn/charstr.h>
 #include <fsdyn/float.h>
-#include <fsdyn/list.h>
+#include <fsdyn/fsalloc.h>
 #include <fsdyn/hashtable.h>
-#include <assert.h>
-#include "encjson.h"
+#include <fsdyn/list.h>
+
 #include "encjson_version.h"
 
 #ifndef LLONG_MIN
 #define ULLONG_MAX -1ULL
-#define LLONG_MAX ((long long) (ULLONG_MAX >> 1))
-#define LLONG_MIN ~LLONG_MAX
+#define LLONG_MAX  ((long long) (ULLONG_MAX >> 1))
+#define LLONG_MIN  ~LLONG_MAX
 #endif
 
 enum {
@@ -188,8 +191,7 @@ static void clobber_array(json_thing_t *array)
     array->array.lookup_table = NULL;
 }
 
-json_thing_t *json_add_to_array(json_thing_t *array,
-                                json_thing_t *element)
+json_thing_t *json_add_to_array(json_thing_t *array, json_thing_t *element)
 {
     assert(array->type == JSON_ARRAY);
     clobber_array(array);
@@ -225,8 +227,8 @@ static void add_to_object(json_thing_t *object, char *key, json_thing_t *value)
     list_append(object->object.fields, f);
 }
 
-json_thing_t *json_add_to_object(json_thing_t *object,
-                                 const char *field, json_thing_t *value)
+json_thing_t *json_add_to_object(json_thing_t *object, const char *field,
+                                 json_thing_t *value)
 {
     add_to_object(object, charstr_dupstr(field), value);
     return object;
@@ -244,8 +246,7 @@ void json_destroy_thing(json_thing_t *thing)
             break;
         case JSON_OBJECT:
             clobber_object(thing);
-            for (e = list_get_first(thing->object.fields);
-                 e;
+            for (e = list_get_first(thing->object.fields); e;
                  e = list_next(e)) {
                 pair_t *f = (pair_t *) list_elem_get_value(e);
                 fsfree(f->name);
@@ -393,9 +394,8 @@ json_thing_t *json_element_value(json_element_t *element)
 
 static void optimize_array(json_thing_t *array)
 {
-    array->array.lookup_table =
-        fsalloc(list_size(array->array.elements) *
-                sizeof array->array.lookup_table[0]);
+    array->array.lookup_table = fsalloc(list_size(array->array.elements) *
+                                        sizeof array->array.lookup_table[0]);
     json_element_t *e;
     size_t i = 0;
     for (e = json_array_first(array); e; e = json_element_next(e))
@@ -418,15 +418,13 @@ json_thing_t *json_array_get(json_thing_t *array, unsigned n)
             return json_array_get(array, n);
         }
     }
-    for (e = json_array_first(array), i = 0;
-         i < n;
+    for (e = json_array_first(array), i = 0; i < n;
          e = json_element_next(e), i++)
         ;
     return json_element_value(e);
 }
 
-bool json_array_get_array(json_thing_t *thing, unsigned n,
-                          json_thing_t **value)
+bool json_array_get_array(json_thing_t *thing, unsigned n, json_thing_t **value)
 {
     json_thing_t *field = json_array_get(thing, n);
     if (field && json_thing_type(field) == JSON_ARRAY) {
@@ -523,14 +521,14 @@ static void optimize_object(json_thing_t *object)
 {
     object->object.lookup_table =
         make_hash_table(list_size(object->object.fields),
-                        (uint64_t (*)(const void *)) hash_string,
+                        (uint64_t(*)(const void *)) hash_string,
                         (int (*)(const void *, const void *)) strcmp);
     json_field_t *f;
     for (f = json_object_first(object); f; f = json_field_next(f)) {
         hash_elem_t *he =
-            hash_table_put(object->object.lookup_table,
-                           json_field_name(f), json_field_value(f));
-        if (he)                 /* forget conflicting entries */
+            hash_table_put(object->object.lookup_table, json_field_name(f),
+                           json_field_value(f));
+        if (he) /* forget conflicting entries */
             destroy_hash_element(he);
     }
 }
@@ -559,8 +557,8 @@ json_thing_t *json_object_get(json_thing_t *object, const char *key)
     return NULL;
 }
 
-json_thing_t *json_object_dig(json_thing_t *thing,
-                              const char *const *keys, size_t num_keys)
+json_thing_t *json_object_dig(json_thing_t *thing, const char *const *keys,
+                              size_t num_keys)
 {
     int i;
     for (i = 0; i < num_keys; i++) {
@@ -638,8 +636,7 @@ bool json_object_get_unsigned(json_thing_t *thing, const char *key,
     return false;
 }
 
-bool json_object_get_double(json_thing_t *thing, const char *key,
-                            double *value)
+bool json_object_get_double(json_thing_t *thing, const char *key, double *value)
 {
     json_thing_t *field = json_object_get(thing, key);
     if (field && json_cast_to_double(field, value))
@@ -647,8 +644,7 @@ bool json_object_get_double(json_thing_t *thing, const char *key,
     return false;
 }
 
-bool json_object_get_boolean(json_thing_t *thing, const char *key,
-                             bool *value)
+bool json_object_get_boolean(json_thing_t *thing, const char *key, bool *value)
 {
     json_thing_t *field = json_object_get(thing, key);
     if (field && json_thing_type(field) == JSON_BOOLEAN) {
@@ -738,12 +734,11 @@ static size_t encode_string_value(const char *value, char **q, char *end)
                 case '\t':
                     count += encode_repr("\\t", q, end);
                     break;
-                default:
-                    {
-                        char buf[10];
-                        sprintf(buf, "\\u%04x", *p & 0xff);
-                        count += encode_repr(buf, q, end);
-                    }
+                default: {
+                    char buf[10];
+                    sprintf(buf, "\\u%04x", *p & 0xff);
+                    count += encode_repr(buf, q, end);
+                }
             }
         else if (is_at_latin_control_character(p)) {
             char buf[10];
@@ -754,8 +749,7 @@ static size_t encode_string_value(const char *value, char **q, char *end)
             encode_char('\\', q, end);
             encode_char(*p, q, end);
             count += 2;
-        }
-        else {
+        } else {
             encode_char(*p, q, end);
             count++;
         }
@@ -827,8 +821,7 @@ static size_t encode_raw(json_thing_t *thing, char **q, char *end)
         case JSON_FLOAT:
             return encode_float(thing, q, end);
         case JSON_BOOLEAN:
-            return encode_repr(thing->boolean.value ? "true" : "false",
-                               q, end);
+            return encode_repr(thing->boolean.value ? "true" : "false", q, end);
         case JSON_NULL:
             return encode_repr("null", q, end);
         case JSON_RAW:
@@ -866,8 +859,8 @@ static size_t prettyprint_array(json_thing_t *thing, char **q, char *end,
             encode_char('\n', q, end);
             indent(q, end, deeper);
             count += deeper + 1;
-            count += prettyprint_raw(json_element_value(e), q, end,
-                                     deeper, indentation);
+            count += prettyprint_raw(json_element_value(e), q, end, deeper,
+                                     indentation);
             e = json_element_next(e);
             if (!e)
                 break;
@@ -899,8 +892,8 @@ static size_t prettyprint_object(json_thing_t *thing, char **q, char *end,
             encode_char(':', q, end);
             encode_char(' ', q, end);
             count += 2;
-            count += prettyprint_raw(json_field_value(f), q, end,
-                                     deeper, indentation);
+            count += prettyprint_raw(json_field_value(f), q, end, deeper,
+                                     indentation);
             f = json_field_next(f);
             if (!f)
                 break;
@@ -933,8 +926,7 @@ static size_t prettyprint_raw(json_thing_t *thing, char **q, char *end,
         case JSON_FLOAT:
             return encode_float(thing, q, end);
         case JSON_BOOLEAN:
-            return encode_repr(thing->boolean.value ? "true" : "false",
-                               q, end);
+            return encode_repr(thing->boolean.value ? "true" : "false", q, end);
         case JSON_NULL:
             return encode_repr("null", q, end);
         case JSON_RAW:
@@ -1269,12 +1261,11 @@ static ssize_t scan_string_repr(const char *p, const char *end)
                 /* Theoretically, count might have overflowed the signed
                  * range. That works perfectly. */
                 return count;
-            default:
-                {
-                    const char *p0 = p;
-                    p = skip_utf8(p, end);
-                    count += p - p0;
-                }
+            default: {
+                const char *p0 = p;
+                p = skip_utf8(p, end);
+                count += p - p0;
+            }
         }
     return -1;
 }
@@ -1312,13 +1303,11 @@ static const char *decode_string_value(const char *p, const char *end,
                 case 't':
                     *q++ = '\t', p++;
                     break;
-                case 'u':
-                    {
-                        int unic;
-                        p = scan_utf16(p + 1, end, &unic);
-                        q = utf8_encode(q, unic);
-                    }
-                    break;
+                case 'u': {
+                    int unic;
+                    p = scan_utf16(p + 1, end, &unic);
+                    q = utf8_encode(q, unic);
+                } break;
                 default:
                     *q++ = *p++;
             }
@@ -1387,7 +1376,8 @@ static const char *decode_unsigned(const char *p, const char *end,
     }
     if ((long long) value >= 0)
         *thing = json_make_integer((long long) value);
-    else *thing = json_make_unsigned(value);
+    else
+        *thing = json_make_unsigned(value);
     return end;
 }
 
@@ -1399,8 +1389,7 @@ static const char *scan_exponent(const char *p, const char *end)
         default:
             return p;
         case 'E':
-        case 'e':
-            ;
+        case 'e':;
     }
     p = skip(p, end, *p);
     if (!p || exhausted(p, end))
@@ -1410,8 +1399,7 @@ static const char *scan_exponent(const char *p, const char *end)
         case '-':
             p = skip(p, end, *p);
             break;
-        default:
-            ;
+        default:;
     }
     return scan_integral(p, end);
 }
@@ -1435,8 +1423,7 @@ static const char *decode_number(const char *p, const char *end,
                 if (!p)
                     return NULL;
                 return decode_float(start, p, thing);
-            default:
-                ;
+            default:;
         }
     return decode_unsigned(start, p, thing);
 }
@@ -1463,7 +1450,8 @@ static const char *decode_negative_number(const char *p, const char *end,
             if (number->integer.value == LLONG_MIN) {
                 number->type = JSON_UNSIGNED;
                 number->u_integer.value = LLONG_MIN;
-            } else number->integer.value = -number->integer.value;
+            } else
+                number->integer.value = -number->integer.value;
             break;
         case JSON_FLOAT:
             number->real.value = -number->real.value;
@@ -1626,25 +1614,23 @@ bool json_cast_to_integer(json_thing_t *thing, long long *n)
         case JSON_INTEGER:
             *n = json_integer_value(thing);
             return true;
-        case JSON_UNSIGNED:
-            {
-                long long value = json_unsigned_value(thing);
-                if (value < 0)
-                    return false;
-                *n = value;
-                return true;
-            }
-        case JSON_FLOAT:
-            {
-                _Static_assert(sizeof(double) == sizeof(uint64_t),
-                               "encjson requires a 64-bit double type.");
-                union {
-                    double f;
-                    uint64_t i;
-                } value;
-                value.f = json_double_value(thing);
-                return binary64_to_integer(value.i, n);
-            }
+        case JSON_UNSIGNED: {
+            long long value = json_unsigned_value(thing);
+            if (value < 0)
+                return false;
+            *n = value;
+            return true;
+        }
+        case JSON_FLOAT: {
+            _Static_assert(sizeof(double) == sizeof(uint64_t),
+                           "encjson requires a 64-bit double type.");
+            union {
+                double f;
+                uint64_t i;
+            } value;
+            value.f = json_double_value(thing);
+            return binary64_to_integer(value.i, n);
+        }
         default:
             return false;
     }
@@ -1653,28 +1639,26 @@ bool json_cast_to_integer(json_thing_t *thing, long long *n)
 bool json_cast_to_unsigned(json_thing_t *thing, unsigned long long *n)
 {
     switch (thing->type) {
-        case JSON_INTEGER:
-            {
-                long long value = json_integer_value(thing);
-                if (value < 0)
-                    return false;
-                *n = value;
-                return true;
-            }
+        case JSON_INTEGER: {
+            long long value = json_integer_value(thing);
+            if (value < 0)
+                return false;
+            *n = value;
+            return true;
+        }
         case JSON_UNSIGNED:
             *n = json_unsigned_value(thing);
             return true;
-        case JSON_FLOAT:
-            {
-                _Static_assert(sizeof(double) == sizeof(uint64_t),
-                               "encjson requires a 64-bit double type.");
-                union {
-                    double f;
-                    uint64_t i;
-                } value;
-                value.f = json_double_value(thing);
-                return binary64_to_unsigned(value.i, n);
-            }
+        case JSON_FLOAT: {
+            _Static_assert(sizeof(double) == sizeof(uint64_t),
+                           "encjson requires a 64-bit double type.");
+            union {
+                double f;
+                uint64_t i;
+            } value;
+            value.f = json_double_value(thing);
+            return binary64_to_unsigned(value.i, n);
+        }
         default:
             return false;
     }
@@ -1710,7 +1694,7 @@ int json_utf8_dump(json_thing_t *thing, FILE *f)
 /* This data structure is used by fstrace inside a safe critical
  * section. */
 enum {
-    TRACE_SLOTS = 4,            /* power of two, please */
+    TRACE_SLOTS = 4, /* power of two, please */
     TRACE_DEFAULT_SIZE = 2048
 };
 
@@ -1719,7 +1703,7 @@ static struct {
     char *slots[TRACE_SLOTS];
     size_t max_size;
 } trace_data = {
-    .max_size = TRACE_DEFAULT_SIZE
+    .max_size = TRACE_DEFAULT_SIZE,
 };
 
 const char *json_trace(void *p)
@@ -1786,9 +1770,9 @@ static bool equal_arrays(json_thing_t *a, json_thing_t *b, double tolerance)
     for (;;) {
         if (!ea)
             return !eb;
-        if (!eb || !json_thing_equal(json_element_value(ea),
-                                     json_element_value(eb),
-                                     tolerance))
+        if (!eb ||
+            !json_thing_equal(json_element_value(ea), json_element_value(eb),
+                              tolerance))
             return false;
         ea = json_element_next(ea);
         eb = json_element_next(eb);
@@ -1833,11 +1817,10 @@ static bool equal_to_unsigned(unsigned long long n, json_thing_t *b,
                               double tolerance)
 {
     switch (json_thing_type(b)) {
-        case JSON_INTEGER:
-            {
-                long long q = json_integer_value(b);
-                return q >= 0 && n == q;
-            }
+        case JSON_INTEGER: {
+            long long q = json_integer_value(b);
+            return q >= 0 && n == q;
+        }
         case JSON_UNSIGNED:
             return n == json_unsigned_value(b);
         case JSON_FLOAT:
