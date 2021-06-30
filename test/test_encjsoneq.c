@@ -1,51 +1,48 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <encjson.h>
 
-static const char *a_repr =
-    "{                                        "
-    "  \"string\" : \"hello\",                "
-    "  \"truth\" : true,                      "
-    "  \"lie\" : false,                       "
-    "  \"nothing\" : null,                    "
-    "  \"year\" : 2017,                       "
-    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ],"
-    "  \"float\" : 0.1                        "
-    "}                                        ";
+static const char *a_repr = "{                                        "
+                            "  \"string\" : \"hello\",                "
+                            "  \"truth\" : true,                      "
+                            "  \"lie\" : false,                       "
+                            "  \"nothing\" : null,                    "
+                            "  \"year\" : 2017,                       "
+                            "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ],"
+                            "  \"float\" : 0.1                        "
+                            "}                                        ";
 
-static const char *b_repr =
-    "{                                        "
-    "  \"nothing\" : null,                    "
-    "  \"string\" : \"hello\",                "
-    "  \"lie\" : false,                       "
-    "  \"truth\" : true,                      "
-    "  \"year\" : 2017,                       "
-    "  \"float\" : 0.10000002,                "
-    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
-    "}                                        ";
+static const char *b_repr = "{                                        "
+                            "  \"nothing\" : null,                    "
+                            "  \"string\" : \"hello\",                "
+                            "  \"lie\" : false,                       "
+                            "  \"truth\" : true,                      "
+                            "  \"year\" : 2017,                       "
+                            "  \"float\" : 0.10000002,                "
+                            "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
+                            "}                                        ";
 
-static const char *b_repr_missing =
-    "{                                        "
-    "  \"nothing\" : null,                    "
-    "  \"string\" : \"hello\",                "
-    "  \"lie\" : false,                       "
-    "  \"year\" : 2017,                       "
-    "  \"float\" : 0.10000002,                "
-    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
-    "}                                        ";
+static const char *b_repr_missing = "{                                        "
+                                    "  \"nothing\" : null,                    "
+                                    "  \"string\" : \"hello\",                "
+                                    "  \"lie\" : false,                       "
+                                    "  \"year\" : 2017,                       "
+                                    "  \"float\" : 0.10000002,                "
+                                    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
+                                    "}                                        ";
 
-static const char *b_repr_extra =
-    "{                                        "
-    "  \"nothing\" : null,                    "
-    "  \"something\" : null,                  "
-    "  \"string\" : \"hello\",                "
-    "  \"lie\" : false,                       "
-    "  \"truth\" : true,                      "
-    "  \"year\" : 2017,                       "
-    "  \"float\" : 0.10000002,                "
-    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
-    "}                                        ";
+static const char *b_repr_extra = "{                                        "
+                                  "  \"nothing\" : null,                    "
+                                  "  \"something\" : null,                  "
+                                  "  \"string\" : \"hello\",                "
+                                  "  \"lie\" : false,                       "
+                                  "  \"truth\" : true,                      "
+                                  "  \"year\" : 2017,                       "
+                                  "  \"float\" : 0.10000002,                "
+                                  "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
+                                  "}                                        ";
 
 static const char *b_repr_bad_string =
     "{                                        "
@@ -58,16 +55,15 @@ static const char *b_repr_bad_string =
     "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
     "}                                        ";
 
-static const char *b_repr_bad_int =
-    "{                                        "
-    "  \"nothing\" : null,                    "
-    "  \"string\" : \"hello\",                "
-    "  \"lie\" : false,                       "
-    "  \"truth\" : true,                      "
-    "  \"year\" : -2017,                      "
-    "  \"float\" : 0.10000002,                "
-    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
-    "}                                        ";
+static const char *b_repr_bad_int = "{                                        "
+                                    "  \"nothing\" : null,                    "
+                                    "  \"string\" : \"hello\",                "
+                                    "  \"lie\" : false,                       "
+                                    "  \"truth\" : true,                      "
+                                    "  \"year\" : -2017,                      "
+                                    "  \"float\" : 0.10000002,                "
+                                    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ] "
+                                    "}                                        ";
 
 static const char *b_repr_bad_float =
     "{                                        "

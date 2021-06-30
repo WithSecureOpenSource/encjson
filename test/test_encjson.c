@@ -1,18 +1,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include <encjson.h>
 
 static const char *data = "\n"
-    "{\n"
-    "  \"string\" : \"\\t\\\"¿xyzzy? \\uD852\\udf62\",\n"
-    "  \"truth\" : true,\n"
-    "  \"lie\" : false,\n"
-    "  \"nothing\" : null,\n"
-    "  \"year\" : 2017,\n"
-    "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ],\n"
-    "  \"π\" : 31415.9265e-4\n"
-    "}\n";
+                          "{\n"
+                          "  \"string\" : \"\\t\\\"¿xyzzy? \\uD852\\udf62\",\n"
+                          "  \"truth\" : true,\n"
+                          "  \"lie\" : false,\n"
+                          "  \"nothing\" : null,\n"
+                          "  \"year\" : 2017,\n"
+                          "  \"months\" : [ 1, 3, 5, 7, 8, 10, 12 ],\n"
+                          "  \"π\" : 31415.9265e-4\n"
+                          "}\n";
 
 static bool test_simple()
 {
@@ -21,38 +22,36 @@ static bool test_simple()
     char buffer[size];
     (void) json_utf8_encode(thing, buffer, size);
     printf("%s\n", buffer);
-    const char *expected =
-        "{"
-            "\"string\":\"\\t\\\"¿xyzzy? 𤭢\","
-            "\"truth\":true,"
-            "\"lie\":false,"
-            "\"nothing\":null,"
-            "\"year\":2017,"
-            "\"months\":[1,3,5,7,8,10,12],"
-            "\"π\":3.14159265000000020862"
-        "}";
+    const char *expected = "{"
+                           "\"string\":\"\\t\\\"¿xyzzy? 𤭢\","
+                           "\"truth\":true,"
+                           "\"lie\":false,"
+                           "\"nothing\":null,"
+                           "\"year\":2017,"
+                           "\"months\":[1,3,5,7,8,10,12],"
+                           "\"π\":3.14159265000000020862"
+                           "}";
     if (strcmp(buffer, expected)) {
         fprintf(stderr, "Error: expected\n%s\n", expected);
         return false;
     }
-    const char *expected2 =
-        "{\n"
-        "    \"string\": \"\\t\\\"¿xyzzy? 𤭢\",\n"
-        "    \"truth\": true,\n"
-        "    \"lie\": false,\n"
-        "    \"nothing\": null,\n"
-        "    \"year\": 2017,\n"
-        "    \"months\": [\n"
-        "        1,\n"
-        "        3,\n"
-        "        5,\n"
-        "        7,\n"
-        "        8,\n"
-        "        10,\n"
-        "        12\n"
-        "    ],\n"
-        "    \"π\": 3.14159265000000020862\n"
-        "}";
+    const char *expected2 = "{\n"
+                            "    \"string\": \"\\t\\\"¿xyzzy? 𤭢\",\n"
+                            "    \"truth\": true,\n"
+                            "    \"lie\": false,\n"
+                            "    \"nothing\": null,\n"
+                            "    \"year\": 2017,\n"
+                            "    \"months\": [\n"
+                            "        1,\n"
+                            "        3,\n"
+                            "        5,\n"
+                            "        7,\n"
+                            "        8,\n"
+                            "        10,\n"
+                            "        12\n"
+                            "    ],\n"
+                            "    \"π\": 3.14159265000000020862\n"
+                            "}";
     size = json_utf8_prettyprint(thing, NULL, 0, 0, 4) + 1;
     char buffer2[size];
     (void) json_utf8_prettyprint(thing, buffer2, size, 0, 4);
