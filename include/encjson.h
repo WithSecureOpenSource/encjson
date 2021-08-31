@@ -85,7 +85,7 @@ const char *json_string_value(json_thing_t *thing);
 size_t json_string_length(json_thing_t *thing);
 const char *json_raw_encoding(json_thing_t *thing);
 
-/* This library spits JSON's generic number type into three useful C
+/* This library splits JSON's generic number type into three useful C
  * data types: JSON_INTEGER (long long), JSON_UNSIGNED (unsigned long
  * long) and JSON_FLOAT (double). That split is practical at times but
  * annoying at others. The following cast functions seek to remove some
