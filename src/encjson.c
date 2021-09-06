@@ -1086,14 +1086,15 @@ static const char *decode_object(const char *p, const char *end,
 
 static const char *scan_hex_digit(const char *p, const char *end, int *digit)
 {
-    if (!p || exhausted(p, end))
+    if (!p || exhausted(p, end)) {
+        *digit = -1; /* don't-care to avoid compiler warnings */
         return NULL;
-    unsigned value = charstr_digit_value(*p);
-    if (value == -1U) {
+    }
+    *digit = charstr_digit_value(*p);
+    if (*digit == -1) {
         json_error();
         return NULL;
     }
-    *digit = value;
     return skip(p, end, *p);
 }
 
