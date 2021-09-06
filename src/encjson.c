@@ -14,6 +14,7 @@
 #include <fsdyn/hashtable.h>
 #include <fsdyn/list.h>
 
+#include "encjson_int.h"
 #include "encjson_version.h"
 
 #ifndef LLONG_MIN
@@ -119,6 +120,7 @@ json_thing_t *json_make_unsigned(unsigned long long n)
 
 json_thing_t *json_make_float(double n)
 {
+    assert(isnormal(n));
     json_thing_t *thing = make_thing(JSON_FLOAT);
     thing->real.value = n;
     return thing;
@@ -800,8 +802,8 @@ static size_t encode_unsigned(json_thing_t *thing, char **q, char *end)
 
 static size_t encode_float(json_thing_t *thing, char **q, char *end)
 {
-    char buf[4 * sizeof thing->real.value];
-    sprintf(buf, "%.21g", thing->real.value);
+    char buf[100];
+    encjson_internal_encode_float(thing->real.value, buf);
     return encode_repr(buf, q, end);
 }
 
@@ -1351,14 +1353,24 @@ static const char *decode_float(const char *p, const char *end,
     memcpy(copy, p, size);
     copy[size] = '\0';
     errno = 0;
-    double value = strtod(copy, NULL);
-    if (value != 0 && errno == ERANGE) {
+    double value;
+    if (!encjson_internal_decode_float(copy, &value)) {
         fsfree(copy);
         return NULL;
     }
     fsfree(copy);
-    *thing = json_make_float(value);
-    return end;
+    switch (fpclassify(value)) {
+        case FP_NAN:
+        case FP_INFINITE:
+            return NULL;
+        case FP_ZERO:
+        case FP_SUBNORMAL:
+            *thing = json_make_float(0);
+            return end;
+        default:
+            *thing = json_make_float(value);
+            return end;
+    }
 }
 
 static const char *decode_unsigned(const char *p, const char *end,

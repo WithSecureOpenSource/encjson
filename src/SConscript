@@ -9,10 +9,15 @@ env['CCFLAGS'] += ' -fPIC'
 
 env['CPPPATH'] = [
     '#include',
+    '.'
 ]
 
 env.ParseConfig(env['CONFIG_PARSER'])
 
+env.InstallAs('encjson_float_formatter.c',
+              env.get('FLOAT_FORMATTER', 'default_float_formatter.c'))
+
 env.StaticLibrary('encjson',
                   [ 'encjson.c',
+                    'encjson_float_formatter.c',
                     'encjson_version.c' ])

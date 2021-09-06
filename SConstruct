@@ -81,7 +81,7 @@ def construct():
     else:
         config_builder = pkgconfig_builder
         config_parser = pkgconfig_parser(prefix)
-
+    float_formatter = ARGUMENTS.get('float_formatter', False)
     for target_arch in target_architectures():
         target_ccflags = TARGET_FLAGS[target_arch] + ccflags
         target_cppdefines = TARGET_DEFINES[target_arch]
@@ -105,6 +105,8 @@ def construct():
                 env['CC'] = cc_override
             if ranlib_override:
                 env['RANLIB'] = ranlib_override
+            if float_formatter:
+                env['FLOAT_FORMATTER'] = float_formatter
             if target_arch == "darwin":
                 env.AppendENVPath("PATH", "/opt/local/bin")
             SConscript(dirs=directory,
