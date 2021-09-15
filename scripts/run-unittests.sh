@@ -36,13 +36,14 @@ run-tests () {
     echo "test_encjson[$arch]..." >&2 &&
     stage/$arch/build/test/test_encjson &&
     echo >&2 &&
-    echo "test_enjsoneq[$arch]..." >&2 &&
+    echo "test_encjsoneq[$arch]..." >&2 &&
     stage/$arch/build/test/test_encjsoneq &&
     echo >&2 &&
     echo "test_decode_empty_file[$arch]..." >&2 &&
     stage/$arch/build/test/test_decode_empty_file &&
+    echo >&2 &&
     echo "test_decode_file[$arch]..." >&2 &&
-    stage/$arch/build/test/test_decode_file <<EOF
+    stage/$arch/build/test/test_decode_file <<EOF &&
 {
   "string" : "\t\"¿xyzzy? \uD852\udf62",
   "truth" : true,
@@ -53,6 +54,7 @@ run-tests () {
   "π" : 31415.9265e-4
 }
 EOF
+    echo >&2
 }
 
 main "$@"

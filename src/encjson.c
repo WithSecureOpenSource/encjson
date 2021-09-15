@@ -71,6 +71,13 @@ struct json_thing {
     };
 };
 
+_Static_assert(sizeof(double) == sizeof(uint64_t),
+               "encjson requires a 64-bit double type.");
+typedef union {
+    double f;
+    uint64_t i;
+} bin64_t;
+
 static const char *decode(const char *p, const char *end, json_thing_t **thing,
                           unsigned levels);
 static const char *decode_string_value(const char *p, const char *end,
@@ -800,8 +807,9 @@ static size_t encode_unsigned(json_thing_t *thing, char **q, char *end)
 
 static size_t encode_float(json_thing_t *thing, char **q, char *end)
 {
-    char buf[4 * sizeof thing->real.value];
-    sprintf(buf, "%.21g", thing->real.value);
+    char buf[BINARY64_MAX_FORMAT_SPACE];
+    bin64_t value = { .f = thing->real.value };
+    (void) binary64_format(value.i, buf);
     return encode_repr(buf, q, end);
 }
 
@@ -1086,14 +1094,15 @@ static const char *decode_object(const char *p, const char *end,
 
 static const char *scan_hex_digit(const char *p, const char *end, int *digit)
 {
-    if (!p || exhausted(p, end))
+    if (!p || exhausted(p, end)) {
+        *digit = -1; /* don't-care to avoid compiler warnings */
         return NULL;
-    unsigned value = charstr_digit_value(*p);
-    if (value == -1U) {
+    }
+    *digit = charstr_digit_value(*p);
+    if (*digit == -1) {
         json_error();
         return NULL;
     }
-    *digit = value;
     return skip(p, end, *p);
 }
 
@@ -1327,139 +1336,46 @@ static const char *decode_string(const char *p, const char *end,
     return p;
 }
 
-static const char *scan_integral(const char *p, const char *end)
+static const char *decode_number(const char *start, const char *end,
+                                 json_thing_t **thing)
 {
-    if (!p || exhausted(p, end))
-        return NULL;
-    if (*p < '0' || *p > '9') {
+    size_t size = end - start;
+    binary64_float_t dec;
+    bool exact;
+    ssize_t count = binary64_parse_decimal(start, size, &dec, &exact);
+    if (count < 0) {
         json_error();
         return NULL;
     }
-    do {
-        p = skip(p, end, *p);
-    } while (p && p < end && *p >= '0' && *p <= '9');
-    return p;
-}
-
-static const char *decode_float(const char *p, const char *end,
-                                json_thing_t **thing)
-{
-    /* assumption: p thru end is a formally valid floating-point number */
-    size_t size = end - p;
-    char *copy = fsalloc(size + 1);
-    memcpy(copy, p, size);
-    copy[size] = '\0';
-    errno = 0;
-    double value = strtod(copy, NULL);
-    if (value != 0 && errno == ERANGE) {
-        fsfree(copy);
+    const char *good = start + count;
+    if (dec.type == BINARY64_TYPE_ZERO) {
+        *thing = json_make_unsigned(0); /* no negative zero */
+        return good;
+    }
+    if (dec.type != BINARY64_TYPE_NORMAL) {
+        json_error();           /* no special values in JSON */
         return NULL;
     }
-    fsfree(copy);
-    *thing = json_make_float(value);
-    return end;
-}
-
-static const char *decode_unsigned(const char *p, const char *end,
-                                   json_thing_t **thing)
-{
-    /* assumption: p thru end is a formally valid unsigned integer */
-    unsigned long long value = 0;
-    const char *start = p;
-    while (p < end) {
-        unsigned long long new_value = value * 10 + *p++ - '0';
-        if (new_value < value) {
-            /* unsigned integer overflow */
-            return decode_float(start, end, thing);
-        }
-        value = new_value;
-    }
-    if ((long long) value >= 0)
-        *thing = json_make_integer((long long) value);
-    else
-        *thing = json_make_unsigned(value);
-    return end;
-}
-
-static const char *scan_exponent(const char *p, const char *end)
-{
-    if (!p || exhausted(p, end))
-        return p;
-    switch (*p) {
-        default:
-            return p;
-        case 'E':
-        case 'e':;
-    }
-    p = skip(p, end, *p);
-    if (!p || exhausted(p, end))
-        return NULL;
-    switch (*p) {
-        case '+':
-        case '-':
-            p = skip(p, end, *p);
-            break;
-        default:;
-    }
-    return scan_integral(p, end);
-}
-
-static const char *decode_number(const char *p, const char *end,
-                                 json_thing_t **thing)
-{
-    const char *start = p;
-    p = scan_integral(p, end);
-    if (!p)
-        return NULL;
-    if (!exhausted(p, end))
-        switch (*p) {
-            case '.':
-                p = skip(p, end, '.');
-                p = scan_integral(p, end);
-                /* flow through */
-            case 'E':
-            case 'e':
-                p = scan_exponent(p, end);
-                if (!p)
-                    return NULL;
-                return decode_float(start, p, thing);
-            default:;
-        }
-    return decode_unsigned(start, p, thing);
-}
-
-static const char *decode_negative_number(const char *p, const char *end,
-                                          json_thing_t **thing)
-{
-    p = skip(p, end, '-');
-    p = decode_number(p, end, thing);
-    if (!p)
-        return NULL;
-    json_thing_t *number = *thing;
-    switch (number->type) {
-        case JSON_UNSIGNED:
-            if (number->u_integer.value < (unsigned long long) LLONG_MIN) {
-                number->type = JSON_INTEGER;
-                number->integer.value = -number->u_integer.value;
-            } else {
-                number->type = JSON_FLOAT;
-                number->real.value = -(double) number->u_integer.value;
+    if (exact && dec.exponent >= 0) {
+        while (dec.exponent-- && dec.significand <= (uint64_t) -1 / 10)
+            dec.significand *= 10;
+        if (dec.exponent == -1) {
+            if (!dec.negative) {
+                *thing = json_make_unsigned(dec.significand);
+                return good;
             }
-            break;
-        case JSON_INTEGER:
-            if (number->integer.value == LLONG_MIN) {
-                number->type = JSON_UNSIGNED;
-                number->u_integer.value = LLONG_MIN;
-            } else
-                number->integer.value = -number->integer.value;
-            break;
-        case JSON_FLOAT:
-            number->real.value = -number->real.value;
-            break;
-        default:
-            abort();
+            if (dec.significand <= ((uint64_t) -1 >> 1) + 1) {
+                *thing = json_make_integer(-(int64_t) dec.significand);
+                return good;
+            }
+        }
+
     }
-    return p;
+    bin64_t value;
+    if (!binary64_from_decimal(&dec, &value.i))
+        return NULL;
+    *thing = json_make_float(value.f);
+    return start + count;
 }
 
 static const char *decode_true(const char *p, const char *end,
@@ -1520,7 +1436,7 @@ static const char *decode(const char *p, const char *end, json_thing_t **thing,
         case '"':
             return decode_string(p, end, thing);
         case '-':
-            return decode_negative_number(p, end, thing);
+            return decode_number(p, end, thing);
         case 't':
             return decode_true(p, end, thing);
         case 'f':
@@ -1622,13 +1538,7 @@ bool json_cast_to_integer(json_thing_t *thing, long long *n)
             return true;
         }
         case JSON_FLOAT: {
-            _Static_assert(sizeof(double) == sizeof(uint64_t),
-                           "encjson requires a 64-bit double type.");
-            union {
-                double f;
-                uint64_t i;
-            } value;
-            value.f = json_double_value(thing);
+            bin64_t value = { .f = json_double_value(thing) };
             return binary64_to_integer(value.i, n);
         }
         default:
@@ -1650,13 +1560,7 @@ bool json_cast_to_unsigned(json_thing_t *thing, unsigned long long *n)
             *n = json_unsigned_value(thing);
             return true;
         case JSON_FLOAT: {
-            _Static_assert(sizeof(double) == sizeof(uint64_t),
-                           "encjson requires a 64-bit double type.");
-            union {
-                double f;
-                uint64_t i;
-            } value;
-            value.f = json_double_value(thing);
+            bin64_t value = { .f = json_double_value(thing) };
             return binary64_to_unsigned(value.i, n);
         }
         default:
