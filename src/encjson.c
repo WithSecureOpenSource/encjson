@@ -1353,23 +1353,24 @@ static const char *decode_number(const char *start, const char *end,
         return good;
     }
     if (dec.type != BINARY64_TYPE_NORMAL) {
-        json_error();           /* no special values in JSON */
+        json_error(); /* no special values in JSON */
         return NULL;
     }
     if (exact && dec.exponent >= 0) {
-        while (dec.exponent-- && dec.significand <= (uint64_t) -1 / 10)
-            dec.significand *= 10;
-        if (dec.exponent == -1) {
+        uint64_t significand = dec.significand;
+        int32_t exponent = dec.exponent;
+        while (exponent-- && significand <= (uint64_t) -1 / 10)
+            significand *= 10;
+        if (exponent == -1) {
             if (!dec.negative) {
-                *thing = json_make_unsigned(dec.significand);
+                *thing = json_make_unsigned(significand);
                 return good;
             }
-            if (dec.significand <= ((uint64_t) -1 >> 1) + 1) {
-                *thing = json_make_integer(-(int64_t) dec.significand);
+            if (significand <= ((uint64_t) -1 >> 1) + 1) {
+                *thing = json_make_integer(-(int64_t) significand);
                 return good;
             }
         }
-
     }
     bin64_t value;
     if (!binary64_from_decimal(&dec, &value.i))
