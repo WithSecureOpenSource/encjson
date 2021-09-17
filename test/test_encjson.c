@@ -86,6 +86,142 @@ static bool test_simple2()
     return true;
 }
 
+static bool test_integers()
+{
+    static struct {
+        const char *repr;
+        unsigned long long value;
+    } integers[] = { { "-0.0", 0 },
+                     { "20", 20 },
+                     { "9223372036854775807", 9223372036854775807 },
+                     { "922337203685477580.7E1", 9223372036854775807 },
+                     { "4E9", 4000000000 },
+                     { "5.000000001E9", 5000000001 },
+                     { "5.000000001E9", 5000000001 },
+                     { "0.0001E4", 1 },
+                     { NULL } };
+    for (int i = 0; integers[i].repr; i++) {
+        json_thing_t *thing = json_utf8_decode_string(integers[i].repr);
+        switch (json_thing_type(thing)) {
+            case JSON_INTEGER:
+                if (json_integer_value(thing) != integers[i].value) {
+                    fprintf(stderr,
+                            "Bad integer conversion at %d: %lld~ %lld\n", i,
+                            json_integer_value(thing), integers[i].value);
+                    return false;
+                }
+                break;
+            case JSON_UNSIGNED:
+                if (json_unsigned_value(thing) != integers[i].value) {
+                    fprintf(stderr,
+                            "Bad integer conversion at %d: %llu ~ %llu\n", i,
+                            json_unsigned_value(thing), integers[i].value);
+                    return false;
+                }
+                break;
+            default:
+                fprintf(stderr, "Bad integer conversion type at %d\n", i);
+                return false;
+        }
+        json_destroy_thing(thing);
+    }
+    return true;
+}
+
+static bool test_signed()
+{
+    static struct {
+        const char *repr;
+        long long value;
+    } s_integers[] = { { "-9223372036854775808", -9223372036854775808U },
+                       { "-922337203685477580.8E1", -9223372036854775808U },
+                       { NULL } };
+    for (int i = 0; s_integers[i].repr; i++) {
+        json_thing_t *thing = json_utf8_decode_string(s_integers[i].repr);
+        switch (json_thing_type(thing)) {
+            case JSON_INTEGER:
+                if (json_integer_value(thing) != s_integers[i].value) {
+                    fprintf(stderr, "Bad signed conversion at %d: %lld~ %lld\n",
+                            i, json_integer_value(thing), s_integers[i].value);
+                    return false;
+                }
+                break;
+            default:
+                fprintf(stderr, "Bad signed conversion type at %d\n", i);
+                return false;
+        }
+        json_destroy_thing(thing);
+    }
+    return true;
+}
+
+static bool test_unsigned()
+{
+    static struct {
+        const char *repr;
+        unsigned long long value;
+    } u_integers[] = { { "9223372036854775808", 9223372036854775808U },
+                       { "922337203685477580.8E1", 9223372036854775808U },
+                       { "18446744073709551615", 18446744073709551615U },
+                       { "1844674407370955161.5E1", 18446744073709551615U },
+                       { "1844674407370955161500.0000E-2",
+                         18446744073709551615U },
+                       { NULL } };
+    for (int i = 0; u_integers[i].repr; i++) {
+        json_thing_t *thing = json_utf8_decode_string(u_integers[i].repr);
+        switch (json_thing_type(thing)) {
+            case JSON_UNSIGNED:
+                if (json_unsigned_value(thing) != u_integers[i].value) {
+                    fprintf(stderr,
+                            "Bad unsigned conversion at %d: %llu ~ %llu\n", i,
+                            json_unsigned_value(thing), u_integers[i].value);
+                    return false;
+                }
+                break;
+            default:
+                fprintf(stderr, "Bad unsigned conversion type at %d\n", i);
+                return false;
+        }
+        json_destroy_thing(thing);
+    }
+    return true;
+}
+
+static bool test_float()
+{
+    static struct {
+        const char *repr;
+        double value;
+    } floats[] = { { "-1.1", -1.1 },
+                   { "18446744073709551616", 18446744073709551616.0 },
+                   { "1844674407370955161.6E1", 18446744073709551616.0 },
+                   { "184467440737095516160E-1", 18446744073709551616.0 },
+                   { "-1844674407370955161500.0001E-2",
+                     -18446744073709551615.0 },
+                   { "18446744073709551620", 18446744073709551620.0 },
+                   { "18446744073709551700", 18446744073709551700.0 },
+                   { "18446744073709552000", 18446744073709552000.0 },
+                   { NULL } };
+    for (int i = 0; floats[i].repr; i++) {
+        json_thing_t *thing = json_utf8_decode_string(floats[i].repr);
+        switch (json_thing_type(thing)) {
+            case JSON_FLOAT:
+                if (json_double_value(thing) != floats[i].value) {
+                    fprintf(stderr,
+                            "Bad float conversion at %d: %.21g ~ %.21g\n", i,
+                            json_double_value(thing), floats[i].value);
+                    return false;
+                }
+                break;
+            default:
+                fprintf(stderr, "Bad float conversion type at %d\n", i);
+                return false;
+        }
+        json_destroy_thing(thing);
+    }
+    return true;
+}
+
 static bool test_big_array()
 {
     json_thing_t *array = json_make_array();
@@ -160,6 +296,14 @@ int main()
     if (!test_simple())
         return EXIT_FAILURE;
     if (!test_simple2())
+        return EXIT_FAILURE;
+    if (!test_integers())
+        return EXIT_FAILURE;
+    if (!test_signed())
+        return EXIT_FAILURE;
+    if (!test_unsigned())
+        return EXIT_FAILURE;
+    if (!test_float())
         return EXIT_FAILURE;
     if (!test_big_array())
         return EXIT_FAILURE;
