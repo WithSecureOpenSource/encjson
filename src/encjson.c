@@ -1201,43 +1201,38 @@ static const char *skip_utf8(const char *p, const char *end)
 {
     if (!p || exhausted(p, end))
         return NULL;
-    char c0 = *p;
+    unsigned char c0 = *p;
     p = skip(p, end, *p);
     if (!(c0 & 0x80))
         return p;
-    if (!(c0 & 0x40)) {
-        json_error();
+    size_t length;
+    int unic;
+    if ((c0 & 0xe0) == 0xc0)
+        length = 2, unic = c0 & 0x1f;
+    else if ((c0 & 0xf0) == 0xe0)
+        length = 3, unic = c0 & 0x0f;
+    else if ((c0 & 0xf8) == 0xf0)
+        length = 4, unic = c0 & 0x07;
+    else {
+        json_error(); /* continuation byte or a too long sequence */
         return NULL;
     }
-    if (!p || exhausted(p, end))
-        return NULL;
-    if ((*p & 0xc0) != 0x80) {
-        json_error();
+    for (size_t i = 1; i < length; i++) {
+        if (!p || exhausted(p, end))
+            return NULL;
+        unsigned char c = *p;
+        if ((c & 0xc0) != 0x80) {
+            json_error();
+            return NULL;
+        }
+        unic = unic << 6 | (c & 0x3f);
+        p = skip(p, end, *p);
+    }
+    if (utf8_length(unic) != length || !valid_unicode(unic)) {
+        json_error(); /* overlong encoding, surrogate or out of range */
         return NULL;
     }
-    p = skip(p, end, *p);
-    if (!(c0 & 0x20))
-        return p;
-    if (!p || exhausted(p, end))
-        return NULL;
-    if ((*p & 0xc0) != 0x80) {
-        json_error();
-        return NULL;
-    }
-    p = skip(p, end, *p);
-    if (!(c0 & 0x10))
-        return p;
-    if (c0 & 0x08) {
-        json_error();
-        return NULL;
-    }
-    if (!p || exhausted(p, end))
-        return NULL;
-    if ((*p & 0xc0) != 0x80) {
-        json_error();
-        return NULL;
-    }
-    return skip(p, end, *p);
+    return p;
 }
 
 static ssize_t scan_string_repr(const char *p, const char *end)
@@ -1273,6 +1268,8 @@ static ssize_t scan_string_repr(const char *p, const char *end)
             default: {
                 const char *p0 = p;
                 p = skip_utf8(p, end);
+                if (!p)
+                    return -1;
                 count += p - p0;
             }
         }

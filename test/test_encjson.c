@@ -222,6 +222,84 @@ static bool test_float()
     return true;
 }
 
+/* Byte sequences that are structurally plausible UTF-8 but not valid
+ * UTF-8. The decoder must reject them; otherwise the decoded string
+ * violates the UTF-8 invariant asserted by
+ * json_adopt_bounded_string(). */
+static bool test_invalid_utf8()
+{
+    static const char *const invalid[] = {
+        "\"\xc0\x80\"",                 /* overlong U+0000 */
+        "\"\xc0\xaf\"",                 /* overlong U+002F */
+        "\"\xc1\xbf\"",                 /* overlong U+007F */
+        "\"\xe0\x80\xaf\"",             /* overlong U+002F */
+        "\"\xe0\x9f\xbf\"",             /* overlong U+07FF */
+        "\"\xf0\x80\x80\xaf\"",         /* overlong U+002F */
+        "\"\xf0\x8f\xbf\xbf\"",         /* overlong U+FFFF */
+        "\"\xed\xa0\x80\"",             /* U+D800, a high surrogate */
+        "\"\xed\xbf\xbf\"",             /* U+DFFF, a low surrogate */
+        "\"\xed\xa0\xbd\xed\xb8\x80\"", /* CESU-8 surrogate pair */
+        "\"\xf4\x90\x80\x80\"",         /* U+110000, out of range */
+        "\"\xf5\x80\x80\x80\"",         /* out of range */
+        "\"\xf7\xbf\xbf\xbf\"",         /* out of range */
+        "\"\xf8\x88\x80\x80\x80\"",     /* five-byte sequence */
+        "\"\x80\"",                     /* lone continuation byte */
+        "\"\xe2\x82\"",                 /* truncated U+20AC */
+        "\"\xe2\x82"
+        "1\"",                  /* U+20AC missing a trailer */
+        "{\"\xed\xa0\x80\":1}", /* invalid UTF-8 in an object key */
+        NULL
+    };
+    for (int i = 0; invalid[i]; i++) {
+        json_thing_t *thing = json_utf8_decode_string(invalid[i]);
+        if (thing) {
+            fprintf(stderr, "Invalid UTF-8 accepted at %d\n", i);
+            json_destroy_thing(thing);
+            return false;
+        }
+    }
+    return true;
+}
+
+/* Conversely, valid UTF-8 must be decoded verbatim, including the
+ * shortest-form encodings at the range boundaries. */
+static bool test_valid_utf8()
+{
+    static const struct {
+        const char *repr;
+        const char *value;
+    } valid[] = { { "\"\x7f\"", "\x7f" },
+                  { "\"\xc2\x80\"", "\xc2\x80" },                 /* U+0080 */
+                  { "\"\xdf\xbf\"", "\xdf\xbf" },                 /* U+07FF */
+                  { "\"\xe0\xa0\x80\"", "\xe0\xa0\x80" },         /* U+0800 */
+                  { "\"\xed\x9f\xbf\"", "\xed\x9f\xbf" },         /* U+D7FF */
+                  { "\"\xee\x80\x80\"", "\xee\x80\x80" },         /* U+E000 */
+                  { "\"\xef\xbf\xbf\"", "\xef\xbf\xbf" },         /* U+FFFF */
+                  { "\"\xf0\x90\x80\x80\"", "\xf0\x90\x80\x80" }, /* U+10000 */
+                  { "\"\xf4\x8f\xbf\xbf\"", "\xf4\x8f\xbf\xbf" }, /* U+10FFFF */
+                  { "\"¿xyzzy?\"", "¿xyzzy?" },
+                  { NULL } };
+    for (int i = 0; valid[i].repr; i++) {
+        json_thing_t *thing = json_utf8_decode_string(valid[i].repr);
+        if (!thing) {
+            fprintf(stderr, "Valid UTF-8 rejected at %d\n", i);
+            return false;
+        }
+        if (json_thing_type(thing) != JSON_STRING) {
+            fprintf(stderr, "Bad UTF-8 string conversion type at %d\n", i);
+            json_destroy_thing(thing);
+            return false;
+        }
+        if (strcmp(json_string_value(thing), valid[i].value)) {
+            fprintf(stderr, "Bad UTF-8 string conversion at %d\n", i);
+            json_destroy_thing(thing);
+            return false;
+        }
+        json_destroy_thing(thing);
+    }
+    return true;
+}
+
 static bool test_big_array()
 {
     json_thing_t *array = json_make_array();
@@ -304,6 +382,10 @@ int main()
     if (!test_unsigned())
         return EXIT_FAILURE;
     if (!test_float())
+        return EXIT_FAILURE;
+    if (!test_invalid_utf8())
+        return EXIT_FAILURE;
+    if (!test_valid_utf8())
         return EXIT_FAILURE;
     if (!test_big_array())
         return EXIT_FAILURE;
