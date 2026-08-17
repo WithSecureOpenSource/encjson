@@ -4,6 +4,7 @@
 
 #include <encjson.h>
 #include <fsdyn/charstr.h>
+#include <fsdyn/fsalloc.h>
 
 static const char *data = "\n"
                           "{\n"
@@ -300,6 +301,103 @@ static bool test_valid_utf8()
     return true;
 }
 
+static bool encodes_as(json_thing_t *thing, const char *expected)
+{
+    size_t size = json_utf8_encode(thing, NULL, 0) + 1;
+    char buffer[size];
+    (void) json_utf8_encode(thing, buffer, size);
+    if (size - 1 != strlen(expected) || strcmp(buffer, expected)) {
+        fprintf(stderr, "Error: expected %s, got %s\n", expected, buffer);
+        return false;
+    }
+    return true;
+}
+
+/* A string value carries an explicit byte length: it may contain NUL
+ * characters, and a value adopted with json_adopt_bounded_string() need
+ * not have a NUL terminator at all. Encoding, cloning and comparing
+ * must all honor that length instead of scanning for a NUL. */
+static bool test_bounded_string()
+{
+    static const char bytes[] = { 'a', '\0', 'b' };
+    json_thing_t *thing = json_make_bounded_string(bytes, sizeof bytes);
+    if (json_string_length(thing) != sizeof bytes) {
+        fprintf(stderr, "Bad bounded string length\n");
+        return false;
+    }
+    if (!encodes_as(thing, "\"a\\u0000b\""))
+        return false;
+    json_thing_t *clone = json_clone(thing);
+    if (json_string_length(clone) != sizeof bytes ||
+        memcmp(json_string_value(clone), bytes, sizeof bytes)) {
+        fprintf(stderr, "Clone did not preserve the bounded string\n");
+        return false;
+    }
+    if (!json_thing_equal(thing, clone, 0)) {
+        fprintf(stderr, "Bounded string not equal to its clone\n");
+        return false;
+    }
+    json_destroy_thing(clone);
+    /* Neither the bytes past the first NUL nor the length may be
+     * ignored by the comparison. */
+    static const char other_bytes[] = { 'a', '\0', 'c' };
+    json_thing_t *other = json_make_bounded_string(other_bytes, sizeof bytes);
+    json_thing_t *prefix = json_make_bounded_string(bytes, 1);
+    if (json_thing_equal(thing, other, 0) ||
+        json_thing_equal(thing, prefix, 0)) {
+        fprintf(stderr, "Distinct bounded strings compared equal\n");
+        return false;
+    }
+    json_destroy_thing(other);
+    json_destroy_thing(prefix);
+    /* The embedded NUL must survive a round trip. */
+    json_thing_t *decoded = json_utf8_decode_string("\"a\\u0000b\"");
+    if (!decoded || json_thing_type(decoded) != JSON_STRING ||
+        json_string_length(decoded) != sizeof bytes ||
+        memcmp(json_string_value(decoded), bytes, sizeof bytes)) {
+        fprintf(stderr, "Bad NUL round trip\n");
+        return false;
+    }
+    json_destroy_thing(decoded);
+    json_destroy_thing(thing);
+    return true;
+}
+
+/* Same, for a value whose buffer has no NUL terminator whatsoever. A
+ * deterministic detection of the over-read needs a sanitizer; this at
+ * least pins the encoded output and the byte count. */
+static bool test_adopted_string()
+{
+    enum { SIZE = 8 };
+    char *buffer = fsalloc(SIZE); /* deliberately not SIZE + 1 */
+    memset(buffer, 'A', SIZE);
+    json_thing_t *thing = json_adopt_bounded_string(buffer, SIZE);
+    if (json_string_length(thing) != SIZE) {
+        fprintf(stderr, "Bad adopted string length\n");
+        return false;
+    }
+    if (!encodes_as(thing, "\"AAAAAAAA\""))
+        return false;
+    json_thing_t *clone = json_clone(thing);
+    if (json_string_length(clone) != SIZE ||
+        memcmp(json_string_value(clone), buffer, SIZE)) {
+        fprintf(stderr, "Clone did not preserve the adopted string\n");
+        return false;
+    }
+    json_destroy_thing(clone);
+    json_destroy_thing(thing);
+    /* A Latin-1 control character escape at the very end of the buffer
+     * must not make the encoder look at the byte after it. */
+    char *tail = fsalloc(2);
+    tail[0] = (char) 0xc2;
+    tail[1] = (char) 0x85; /* U+0085 */
+    thing = json_adopt_bounded_string(tail, 2);
+    if (!encodes_as(thing, "\"\\u0085\""))
+        return false;
+    json_destroy_thing(thing);
+    return true;
+}
+
 static bool test_big_array()
 {
     json_thing_t *array = json_make_array();
@@ -386,6 +484,10 @@ int main()
     if (!test_invalid_utf8())
         return EXIT_FAILURE;
     if (!test_valid_utf8())
+        return EXIT_FAILURE;
+    if (!test_bounded_string())
+        return EXIT_FAILURE;
+    if (!test_adopted_string())
         return EXIT_FAILURE;
     if (!test_big_array())
         return EXIT_FAILURE;
