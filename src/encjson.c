@@ -148,9 +148,9 @@ static int is_ascii_control_character(char c)
     return (c & 0xe0) == 0 || c == 0x7f;
 }
 
-static int is_at_latin_control_character(const char *s)
+static int is_at_latin_control_character(const char *s, const char *end)
 {
-    return s[0] == (char) 0xc2 && (s[1] & 0xe0) == 0x80;
+    return s[0] == (char) 0xc2 && end - s >= 2 && (s[1] & 0xe0) == 0x80;
 }
 
 json_thing_t *json_adopt_bounded_string(char *s, size_t size)
@@ -318,7 +318,8 @@ json_thing_t *json_clone(json_thing_t *thing)
         case JSON_OBJECT:
             return clone_object(thing);
         case JSON_STRING:
-            return json_make_string(thing->string.utf8);
+            return json_make_bounded_string(thing->string.utf8,
+                                            thing->string.len);
         case JSON_INTEGER:
             return json_make_integer(thing->integer.value);
         case JSON_UNSIGNED:
@@ -718,12 +719,16 @@ static size_t encode_array(json_thing_t *thing, char **q, char *end)
     return count;
 }
 
-static size_t encode_string_value(const char *value, char **q, char *end)
+/* Note that value need not be NUL-terminated and may contain NUL
+ * characters; only the first len bytes are read. */
+static size_t encode_string_value(const char *value, size_t len, char **q,
+                                  char *end)
 {
     encode_char('"', q, end);
     size_t count = 1;
+    const char *limit = value + len;
     const char *p;
-    for (p = value; *p; p++)
+    for (p = value; p < limit; p++)
         if (is_ascii_control_character(*p))
             switch (*p) {
                 case '\b':
@@ -747,7 +752,7 @@ static size_t encode_string_value(const char *value, char **q, char *end)
                     count += encode_repr(buf, q, end);
                 }
             }
-        else if (is_at_latin_control_character(p)) {
+        else if (is_at_latin_control_character(p, limit)) {
             char buf[10];
             sprintf(buf, "\\u%04x", (p[0] & 0x1f) << 6 | (p[1] & 0x3f));
             p++;
@@ -764,6 +769,12 @@ static size_t encode_string_value(const char *value, char **q, char *end)
     return count + 1;
 }
 
+/* Object field names are always C strings. */
+static size_t encode_field_name(const char *name, char **q, char *end)
+{
+    return encode_string_value(name, strlen(name), q, end);
+}
+
 static size_t encode_object(json_thing_t *thing, char **q, char *end)
 {
     encode_char('{', q, end);
@@ -771,7 +782,7 @@ static size_t encode_object(json_thing_t *thing, char **q, char *end)
     json_field_t *f = json_object_first(thing);
     if (f)
         for (;;) {
-            count += encode_string_value(json_field_name(f), q, end);
+            count += encode_field_name(json_field_name(f), q, end);
             encode_char(':', q, end);
             count++;
             count += encode_raw(json_field_value(f), q, end);
@@ -788,7 +799,7 @@ static size_t encode_object(json_thing_t *thing, char **q, char *end)
 
 static size_t encode_string(json_thing_t *thing, char **q, char *end)
 {
-    return encode_string_value(thing->string.utf8, q, end);
+    return encode_string_value(thing->string.utf8, thing->string.len, q, end);
 }
 
 static size_t encode_integer(json_thing_t *thing, char **q, char *end)
@@ -896,7 +907,7 @@ static size_t prettyprint_object(json_thing_t *thing, char **q, char *end,
             encode_char('\n', q, end);
             indent(q, end, deeper);
             count += deeper + 1;
-            count += encode_string_value(json_field_name(f), q, end);
+            count += encode_field_name(json_field_name(f), q, end);
             encode_char(':', q, end);
             encode_char(' ', q, end);
             count += 2;
@@ -1681,6 +1692,14 @@ static bool equal_arrays(json_thing_t *a, json_thing_t *b, double tolerance)
     }
 }
 
+/* String values may contain NUL characters and need not be
+ * NUL-terminated; compare the exact byte ranges. */
+static bool equal_strings(json_thing_t *a, json_thing_t *b)
+{
+    return a->string.len == b->string.len &&
+        !memcmp(a->string.utf8, b->string.utf8, a->string.len);
+}
+
 static bool equal_objects(json_thing_t *a, json_thing_t *b, double tolerance)
 {
     if (list_size(a->object.fields) != list_size(b->object.fields))
@@ -1762,8 +1781,7 @@ bool json_thing_equal(json_thing_t *a, json_thing_t *b, double tolerance)
             return json_thing_type(b) == JSON_OBJECT &&
                 equal_objects(a, b, tolerance);
         case JSON_STRING:
-            return json_thing_type(b) == JSON_STRING &&
-                !strcmp(json_string_value(a), json_string_value(b));
+            return json_thing_type(b) == JSON_STRING && equal_strings(a, b);
         case JSON_INTEGER:
             return equal_to_integer(json_integer_value(a), b, tolerance);
         case JSON_UNSIGNED:
