@@ -1374,8 +1374,14 @@ static const char *decode_number(const char *start, const char *end,
                 *thing = json_make_unsigned(significand);
                 return good;
             }
-            if (significand <= ((uint64_t) -1 >> 1) + 1) {
-                *thing = json_make_integer(-(int64_t) significand);
+            if (significand <= (uint64_t) LLONG_MAX) {
+                *thing = json_make_integer(-(long long) significand);
+                return good;
+            }
+            /* The most negative value has no positive counterpart and
+             * cannot be reached by negating one. */
+            if (significand == (uint64_t) LLONG_MAX + 1) {
+                *thing = json_make_integer(LLONG_MIN);
                 return good;
             }
         }
