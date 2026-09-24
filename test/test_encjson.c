@@ -322,6 +322,45 @@ static bool encodes_as(json_thing_t *thing, const char *expected)
     return true;
 }
 
+/* Malformed \u escapes must be rejected without the scanner deriving a
+ * code point from the digits it never read. */
+static bool test_escapes()
+{
+    static const char *const invalid[] = {
+        "\"\\u\"",            /* no digits */
+        "\"\\u12\"",          /* too few digits */
+        "\"\\uZZZZ\"",        /* not hex digits */
+        "\"\\ud800\"",        /* lone high surrogate */
+        "\"\\udc00\"",        /* lone low surrogate */
+        "\"\\ud800\\u0041\"", /* high surrogate, then a non-surrogate */
+        "\"\\ud800\\ud800\"", /* two high surrogates */
+        "\"\\ud800\\u\"",     /* truncated after a high surrogate */
+        NULL
+    };
+    for (int i = 0; invalid[i]; i++) {
+        json_thing_t *thing = json_utf8_decode_string(invalid[i]);
+        if (thing) {
+            fprintf(stderr, "Invalid escape accepted at %d\n", i);
+            json_destroy_thing(thing);
+            return false;
+        }
+    }
+    /* A valid surrogate pair still yields the astral code point. */
+    json_thing_t *thing = json_utf8_decode_string("\"\\ud83d\\ude00\"");
+    if (!thing) {
+        fprintf(stderr, "Valid surrogate pair rejected\n");
+        return false;
+    }
+    if (json_thing_type(thing) != JSON_STRING ||
+        strcmp(json_string_value(thing), "\xf0\x9f\x98\x80")) {
+        fprintf(stderr, "Bad surrogate pair conversion\n");
+        json_destroy_thing(thing);
+        return false;
+    }
+    json_destroy_thing(thing);
+    return true;
+}
+
 /* A string value carries an explicit byte length: it may contain NUL
  * characters, and a value adopted with json_adopt_bounded_string() need
  * not have a NUL terminator at all. Encoding, cloning and comparing
@@ -493,6 +532,8 @@ int main()
     if (!test_invalid_utf8())
         return EXIT_FAILURE;
     if (!test_valid_utf8())
+        return EXIT_FAILURE;
+    if (!test_escapes())
         return EXIT_FAILURE;
     if (!test_bounded_string())
         return EXIT_FAILURE;
