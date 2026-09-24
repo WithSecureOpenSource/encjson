@@ -1124,6 +1124,10 @@ static const char *scan_ucs2(const char *p, const char *end, int *value)
     p = scan_hex_digit(p, end, &d1);
     p = scan_hex_digit(p, end, &d2);
     p = scan_hex_digit(p, end, &d3);
+    if (!p) {
+        *value = -1; /* don't-care to avoid compiler warnings */
+        return NULL;
+    }
     *value = d0 << 12 | d1 << 8 | d2 << 4 | d3;
     return p;
 }
